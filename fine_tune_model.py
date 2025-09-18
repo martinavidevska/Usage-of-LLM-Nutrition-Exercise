@@ -1,6 +1,7 @@
 import pandas as pd
-from transformers import BartTokenizer, BartForConditionalGeneration, Trainer, TrainingArguments, GPT2Tokenizer
+from transformers import BartTokenizer, BartForConditionalGeneration, Trainer, TrainingArguments, GPT2Tokenizer, DataCollatorForSeq2Seq
 from datasets import Dataset
+from transformers.data import data_collator
 
 data = pd.read_csv("cleaned_dataset.csv")
 
@@ -29,21 +30,32 @@ tokenized_train = train_dataset.map(tokenize_function, batched=True)
 tokenized_val = val_dataset.map(tokenize_function, batched=True)
 
 training_args = TrainingArguments(
-    output_dir='./results',
+    output_dir="./results",
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    logging_strategy="epoch",
     per_device_train_batch_size=4,
     per_device_eval_batch_size=4,
     num_train_epochs=2,
+    weight_decay=0.01,
+    save_total_limit=2,
+    fp16=False,  # if GPU supports mixed precision
 )
+data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
+
 
 trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=tokenized_train,
     eval_dataset=tokenized_val,
+    tokenizer=tokenizer,
+    data_collator=data_collator,
 )
+
 
 trainer.train()
 
-model.save_pretrained('./final-fine-tune-bart')
-tokenizer.save_pretrained('./final-fine-tune-bart')
+model.save_pretrained('./new-improved-fine-tune-bart')
+tokenizer.save_pretrained('./new-improved-fine-tune-bart')
 

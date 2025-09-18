@@ -10,20 +10,28 @@ dataset = Dataset.from_pandas(data)
 train_dataset, val_dataset = dataset.train_test_split(test_size=0.2).values()
 
 # Load tokenizer/model
-tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
-model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large")
+model_name = "google/flan-t5-small"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 tokenizer.pad_token_id = tokenizer.eos_token_id
 
 # Tokenization
 def tokenize_function(examples):
-    inputs = ["question: " + q for q in examples["Query"]]
-    targets = [a for a in examples["Result"]]
+    # Instruction prefix
+    inputs = ["Answer the following fitness/nutrition question: " + q for q in examples["Query"]]
+    targets = [str(a) for a in examples["Result"]]
 
     model_inputs = tokenizer(inputs, padding="max_length", truncation=True, max_length=256)
     labels = tokenizer(targets, padding="max_length", truncation=True, max_length=256)
 
-    model_inputs["labels"] = labels["input_ids"]
+    # Mask padding tokens in labels
+    labels_input_ids = [
+        [(token if token != tokenizer.pad_token_id else -100) for token in l]
+        for l in labels["input_ids"]
+    ]
+    model_inputs["labels"] = labels_input_ids
     return model_inputs
+
 
 tokenized_train = train_dataset.map(tokenize_function, batched=True)
 tokenized_val = val_dataset.map(tokenize_function, batched=True)
